@@ -22,7 +22,7 @@ async def generate_thumbnail(prompt: str, style_prompt: str, headshot_url: str) 
     input=[{
         "role": "user",
         "content": [
-            {"type": "imput_image", "url": headshot_url},
+            {"type": "input_image", "url": headshot_url},
             {"type": "text", "text": full_prompt}
             ],
     }],
