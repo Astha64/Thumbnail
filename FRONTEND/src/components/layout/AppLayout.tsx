@@ -1,9 +1,19 @@
-import React from 'react';
-import { Outlet, NavLink, Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import { Sparkles, LayoutDashboard, PlusCircle, LogOut } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useAuth } from '../../context/AuthContext';
 
 export default function AppLayout() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-surface-dark text-slate-100 flex flex-col font-sans">
       {/* Persistent Navigation Header */}
@@ -23,10 +33,10 @@ export default function AppLayout() {
               to="/dashboard"
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors",
+                  'flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors',
                   isActive
-                    ? "bg-brand-500/15 text-brand-400 border border-brand-500/30"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                    ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                 )
               }
             >
@@ -38,10 +48,10 @@ export default function AppLayout() {
               to="/create"
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors",
+                  'flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors',
                   isActive
-                    ? "bg-brand-500/15 text-brand-400 border border-brand-500/30"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                    ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                 )
               }
             >
@@ -50,16 +60,16 @@ export default function AppLayout() {
             </NavLink>
           </nav>
 
-          {/* User Account / Logout placeholder */}
+          {/* Logout Button */}
           <div className="flex items-center gap-3 border-l border-surface-border pl-4">
-            <Link
-              to="/login"
+            <button
+              onClick={handleLogout}
               className="flex items-center gap-2 text-xs text-slate-400 hover:text-rose-400 transition-colors px-2 py-1 rounded hover:bg-rose-500/10"
-              title="Logout session placeholder"
+              title="Sign out"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Logout</span>
-            </Link>
+            </button>
           </div>
         </div>
       </header>
