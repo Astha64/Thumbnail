@@ -1,45 +1,17 @@
-# import asyncio
-# import httpx
-
-# from .base import ImageProvider
-# from config import HF_TOKEN, HF_MODEL
-
-# HF_URL = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL}"
-
-
-# class HuggingFaceProvider(ImageProvider):
-#     async def generate_image(self, prompt: str, width: int, height: int) -> bytes:
-#         headers = {
-#             "Authorization": f"Bearer {HF_TOKEN}",
-#             "Content-Type": "application/json",
-#         }
-#         payload = {
-#             "inputs": prompt,
-#             "parameters": {"width": width, "height": height},
-#         }
-
-#         async with httpx.AsyncClient(timeout=120) as client:
-#             response = await client.post(HF_URL, headers=headers, json=payload)
-
-#             # Free-tier models unload when idle; first hit after a while returns 503
-#             # while it "wakes up" — one retry after a short wait fixes almost all of these.
-#             if response.status_code == 503:
-#                 await asyncio.sleep(15)
-#                 response = await client.post(HF_URL, headers=headers, json=payload)
-
-#             response.raise_for_status()
-#             return response.content   # raw PNG bytes, not JSON
-
-
-
 # services/image_provider/huggingface.py
 import asyncio
 import io
+import logging
 
 from huggingface_hub import InferenceClient
 
 from .base import ImageProvider
-from config import HF_TOKEN, HF_MODEL, HF_PROVIDER
+from config import HF_TOKEN, HF_MODEL, HF_PROVIDER, HF_KONTEXT_MODEL
+
+logger = logging.getLogger(__name__)
+
+# Provider that supports image-to-image for the Kontext model (in priority order).
+_I2I_PROVIDERS = ["fal-ai", "replicate"]
 
 
 class HuggingFaceProvider(ImageProvider):
@@ -49,14 +21,51 @@ class HuggingFaceProvider(ImageProvider):
             api_key=HF_TOKEN,
         )
 
-    async def generate_image(self, prompt: str, width: int, height: int) -> bytes:
+    async def generate_image(
+        self,
+        prompt: str,
+        width: int,
+        height: int,
+        reference_image: bytes | None = None,
+    ) -> bytes:
         loop = asyncio.get_event_loop()
 
-        pil_image = await loop.run_in_executor(
-            None,
-            lambda: self.client.text_to_image(prompt, model=HF_MODEL),
-        )
+        if reference_image is not None:
+            pil_image = await self._image_to_image(prompt, reference_image, loop)
+        else:
+            # Text-to-image fallback (no reference provided).
+            pil_image = await loop.run_in_executor(
+                None,
+                lambda: self.client.text_to_image(prompt, model=HF_MODEL),
+            )
 
         buffer = io.BytesIO()
         pil_image.save(buffer, format="PNG")
         return buffer.getvalue()
+
+    async def _image_to_image(self, prompt: str, reference_image: bytes, loop) -> object:
+        """
+        Uses the FLUX.1-Kontext-dev image editing model to transform the uploaded
+        headshot according to the prompt while preserving the subject's face.
+
+        Tries providers in order (fal-ai first, then replicate) since support
+        varies by provider.
+        """
+        last_error = None
+        for provider in _I2I_PROVIDERS:
+            try:
+                client = InferenceClient(provider=provider, api_key=HF_TOKEN)
+                pil_image = await loop.run_in_executor(
+                    None,
+                    lambda: client.image_to_image(
+                        reference_image,
+                        prompt=prompt,
+                        model=HF_KONTEXT_MODEL,
+                    ),
+                )
+                return pil_image
+            except Exception as e:
+                last_error = e
+                logger.warning(f"image_to_image via {provider} failed ({e}); trying next provider")
+
+        raise RuntimeError(f"All image-to-image providers failed. Last error: {last_error}")

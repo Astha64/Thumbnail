@@ -120,6 +120,7 @@
 import asyncio
 import logging
 
+import httpx
 from sqlmodel import Session, select
 from database import engine
 from models import Job, Thumbnail
@@ -157,7 +158,23 @@ async def generate_single_thumbnail(thumbnail_id: str, prompt: str, headshot_url
     full_prompt = f"{STYLES[style_name]} {prompt}"
 
     try:
-        image_bytes = await generate_with_fallback(full_prompt, width=1280, height=720)
+        # Download the uploaded headshot to use as the visual reference.
+        reference_image = None
+        if headshot_url:
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.get(headshot_url)
+                    resp.raise_for_status()
+                    reference_image = resp.content
+            except Exception as e:
+                logger.warning(f"Could not fetch headshot {headshot_url}: {e}. Generating without reference.")
+
+        image_bytes = await generate_with_fallback(
+            full_prompt,
+            width=1280,
+            height=720,
+            reference_image=reference_image,
+        )
 
         with Session(engine) as session:
             thumb = session.get(Thumbnail, thumbnail_id)

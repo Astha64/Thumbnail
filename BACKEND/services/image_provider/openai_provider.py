@@ -12,7 +12,14 @@ class OpenAIProvider(ImageProvider):
         # (i.e. only if IMAGE_PROVIDER=openai), not at import time.
         self.client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
-    async def generate_image(self, prompt: str, width: int, height: int) -> bytes:
+    async def generate_image(
+        self,
+        prompt: str,
+        width: int,
+        height: int,
+        reference_image: bytes | None = None,
+    ) -> bytes:
+        # Currently text-to-image only; reference_image is ignored.
         response = await self.client.responses.create(
             model="gpt-4.1-mini",
             input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],

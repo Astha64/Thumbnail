@@ -7,7 +7,14 @@ POLLINATIONS_BASE_URL = "https://image.pollinations.ai/prompt"
 
 
 class PollinationsProvider(ImageProvider):
-    async def generate_image(self, prompt: str, width: int, height: int) -> bytes:
+    async def generate_image(
+        self,
+        prompt: str,
+        width: int,
+        height: int,
+        reference_image: bytes | None = None,
+    ) -> bytes:
+        # Pollinations is text-to-image only; reference_image is ignored.
         encoded_prompt = quote(prompt)
         url = (
             f"{POLLINATIONS_BASE_URL}/{encoded_prompt}"

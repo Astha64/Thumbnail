@@ -4,6 +4,7 @@ from config import IMAGE_PROVIDER, IMAGE_PROVIDER_FALLBACK
 from .huggingface import HuggingFaceProvider
 from .pollinations import PollinationsProvider
 from .openai_provider import OpenAIProvider
+from .gemini import GeminiProvider
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,7 @@ _PROVIDERS = {
     "huggingface": HuggingFaceProvider,
     "pollinations": PollinationsProvider,
     "openai": OpenAIProvider,
+    "gemini": GeminiProvider,
 }
 
 
@@ -26,17 +28,25 @@ def get_provider():
     return _build(IMAGE_PROVIDER)
 
 
-async def generate_with_fallback(prompt: str, width: int, height: int) -> bytes:
+async def generate_with_fallback(
+    prompt: str,
+    width: int,
+    height: int,
+    reference_image: bytes | None = None,
+) -> bytes:
     """
     Tries the primary provider; if it raises, falls back to IMAGE_PROVIDER_FALLBACK
     (set to the same value as IMAGE_PROVIDER to disable fallback).
+
+    `reference_image` (optional) is passed to providers that support it so the
+    generated image preserves the uploaded headshot's subject.
     """
     primary = _build(IMAGE_PROVIDER)
     try:
-        return await primary.generate_image(prompt, width, height)
+        return await primary.generate_image(prompt, width, height, reference_image)
     except Exception as e:
         logger.warning(f"{IMAGE_PROVIDER} failed ({e}), falling back to {IMAGE_PROVIDER_FALLBACK}")
         if IMAGE_PROVIDER_FALLBACK == IMAGE_PROVIDER:
             raise   # fallback disabled or same as primary — don't retry pointlessly
         fallback = _build(IMAGE_PROVIDER_FALLBACK)
-        return await fallback.generate_image(prompt, width, height)
+        return await fallback.generate_image(prompt, width, height, reference_image)
